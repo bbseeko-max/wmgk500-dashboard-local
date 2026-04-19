@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>102.9 MGK — Philly 500</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0e0e; --surface: #161616; --surface2: #1f1f1f;
+    --border: #2a2a2a; --amber: #e8a020; --amber-dim: #7a4e08;
+    --amber-glow: rgba(232,160,32,0.10); --red: #e84040; --green: #3ecf6a;
+    --text: #f0ede6; --muted: #7a7670;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --display: 'Bebas Neue', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); overflow-x: hidden; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:10px 20px; border-bottom:1px solid var(--border); background:var(--surface); gap:12px; flex-wrap:wrap; }
+  .station-id { font-family:var(--display); font-size:26px; letter-spacing:2px; color:var(--amber); line-height:1; }
+  .station-sub { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
+  .topbar-center { display:flex; gap:16px; align-items:center; }
+  .live-badge { display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--red); }
+  .live-dot { width:8px; height:8px; border-radius:50%; background:var(--red); animation:pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(232,64,64,0.5)} 50%{opacity:0.7;box-shadow:0 0 0 5px rgba(232,64,64,0)} }
+  .ws-badge { font-family:var(--mono); font-size:9px; letter-spacing:1px; padding:3px 8px; border-radius:2px; border:1px solid var(--border); color:var(--muted); }
+  .ws-badge.ok { color:var(--green); border-color:var(--green); }
+  .ws-badge.err { color:var(--red); border-color:var(--red); }
+  .ws-badge.connecting { color:var(--amber); border-color:var(--amber-dim); animation:pulse-a 1s infinite; }
+  @keyframes pulse-a { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .clock { font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .position-banner { background:var(--surface); border-bottom:1px solid var(--border); padding:12px 20px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  .pos-label { font-family:var(--mono); font-size:9px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; }
+  .pos-number { font-family:var(--display); font-size:72px; line-height:1; color:var(--amber); letter-spacing:2px; text-shadow:0 0 60px var(--amber-glow); transition:all 0.5s; }
+  .pos-of { font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:1px; }
+  .pos-divider { width:1px; height:60px; background:var(--border); }
+  .pos-stats { display:flex; gap:24px; }
+  .pos-stat-val { font-family:var(--display); font-size:28px; color:var(--text); line-height:1; }
+  .pos-stat-label { font-family:var(--mono); font-size:8px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
+  .pos-right { margin-left:auto; text-align:right; }
+  .pos-event { font-family:var(--display); font-size:22px; color:var(--amber); letter-spacing:2px; }
+  .pos-event-sub { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:2px; }
+  .main { display:grid; grid-template-columns:1fr 300px; min-height:calc(100vh - 130px); }
+  .left-col { padding:16px; border-right:1px solid var(--border); display:flex; flex-direction:column; gap:16px; }
+  .right-col { padding:16px 14px; display:flex; flex-direction:column; gap:16px; background:var(--surface); overflow-y:auto; }
+  .now-playing-card { background:var(--surface); border:1px solid var(--border); border-radius:4px; overflow:hidden; }
+  .np-label { padding:9px 14px 7px; font-family:var(--mono); font-size:9px; letter-spacing:3px; text-transform:uppercase; color:var(--amber); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; justify-content:space-between; }
+  .np-label::before { content:''; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--amber); animation:pulse-amber 2s ease-in-out infinite; flex-shrink:0; }
+  @keyframes pulse-amber { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .np-position-pill { font-family:var(--display); font-size:14px; color:var(--amber-dim); background:rgba(232,160,32,0.08); padding:2px 10px; border-radius:2px; border:1px solid var(--amber-dim); }
+  .np-body { padding:16px 14px 10px; display:grid; grid-template-columns:1fr auto; gap:12px; align-items:start; }
+  .np-song { font-family:var(--display); font-size:40px; line-height:0.95; letter-spacing:1px; color:var(--text); transition:opacity 0.3s; }
+  .np-artist { font-family:var(--sans); font-size:15px; font-weight:400; color:var(--amber); margin-top:8px; }
+  .np-meta { font-family:var(--mono); font-size:10px; color:var(--muted); margin-top:5px; display:flex; gap:14px; flex-wrap:wrap; }
+  .np-meta span { color:var(--text); }
+  .np-year-big { font-family:var(--display); font-size:56px; line-height:1; color:var(--amber-dim); letter-spacing:2px; text-shadow:0 0 30px var(--amber-glow); }
+  .np-decade { font-family:var(--mono); font-size:8px; color:var(--muted); letter-spacing:2px; text-align:right; margin-top:2px; }
+  .vu-row { padding:0 14px 12px; display:flex; gap:2px; align-items:flex-end; height:28px; }
+  .vu-bar { width:5px; border-radius:1px; background:var(--amber); transition:height 0.1s ease; }
+  .commercial-banner { background:rgba(232,160,32,0.06); border:1px solid var(--amber-dim); border-radius:4px; padding:14px 18px; text-align:center; display:none; }
+  .commercial-banner.show { display:block; }
+  .comm-label { font-family:var(--mono); font-size:9px; letter-spacing:3px; color:var(--amber); text-transform:uppercase; }
+  .comm-sub { font-family:var(--sans); font-size:12px; color:var(--muted); margin-top:4px; }
+  .section-head { font-family:var(--mono); font-size:8px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; display:flex; justify-content:space-between; }
+  .section-count { color:var(--amber); }
+  .recent-list { display:flex; flex-direction:column; gap:1px; max-height:300px; overflow-y:auto; }
+  .recent-list::-webkit-scrollbar { width:3px; }
+  .recent-list::-webkit-scrollbar-thumb { background:var(--border); }
+  .recent-item { display:grid; grid-template-columns:36px 1fr auto; gap:8px; align-items:center; padding:8px 10px; background:var(--surface); border:1px solid var(--border); border-radius:2px; }
+  .recent-item.new { animation:flashin 1.5s ease; }
+  @keyframes flashin { 0%{background:rgba(232,160,32,0.12);border-color:var(--amber-dim)} 100%{background:var(--surface);border-color:var(--border)} }
+  .recent-pos { font-family:var(--display); font-size:16px; color:var(--amber-dim); text-align:center; }
+  .recent-title { font-family:var(--sans); font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .recent-artist { font-family:var(--sans); font-size:10px; color:var(--muted); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .recent-time { font-family:var(--mono); font-size:9px; color:var(--muted); text-align:right; flex-shrink:0; }
+  .empty-state { font-family:var(--mono); font-size:10px; color:var(--muted); padding:16px 0; text-align:center; letter-spacing:1px; }
+  .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .stat-tile { background:var(--bg); border:1px solid var(--border); border-radius:3px; padding:9px 10px; }
+  .stat-label { font-family:var(--mono); font-size:7px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:3px; }
+  .stat-value { font-family:var(--display); font-size:28px; line-height:1; color:var(--text); }
+  .stat-sub { font-family:var(--mono); font-size:8px; color:var(--muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .divider { border:none; border-top:1px solid var(--border); }
+  .decade-chart { display:flex; flex-direction:column; gap:7px; }
+  .decade-row { display:grid; grid-template-columns:42px 1fr 28px; gap:6px; align-items:center; }
+  .decade-label { font-family:var(--mono); font-size:9px; color:var(--muted); }
+  .decade-track { height:7px; background:var(--border); border-radius:1px; overflow:hidden; }
+  .decade-fill { height:100%; border-radius:1px; background:var(--amber); transition:width 0.8s cubic-bezier(0.22,1,0.36,1); }
+  .decade-count { font-family:var(--mono); font-size:9px; color:var(--muted); text-align:right; }
+  .artist-list { display:flex; flex-direction:column; gap:3px; }
+  .artist-row { display:grid; grid-template-columns:16px 1fr auto; gap:6px; align-items:center; padding:5px 6px; border-radius:2px; transition:background 0.15s; }
+  .artist-row:hover { background:var(--bg); }
+  .artist-rank { font-family:var(--mono); font-size:8px; color:var(--amber-dim); text-align:center; }
+  .artist-name { font-family:var(--sans); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .artist-plays { font-family:var(--mono); font-size:9px; color:var(--muted); padding:1px 5px; background:var(--border); border-radius:8px; flex-shrink:0; }
+  .init-overlay { position:fixed; inset:0; background:rgba(14,14,14,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:100; }
+  .init-overlay.hidden { display:none; }
+  .init-title { font-family:var(--display); font-size:42px; color:var(--amber); letter-spacing:4px; }
+  .init-sub { font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:2px; }
+  .init-input-row { display:flex; gap:10px; align-items:center; margin-top:8px; }
+  .init-input { font-family:var(--mono); font-size:28px; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:8px 16px; width:120px; text-align:center; outline:none; }
+  .init-input:focus { border-color:var(--amber); }
+  .init-btn { font-family:var(--mono); font-size:11px; letter-spacing:2px; color:var(--bg); background:var(--amber); border:none; border-radius:4px; padding:12px 20px; cursor:pointer; text-transform:uppercase; }
+  .init-btn:hover { background:#f0b030; }
+  .init-note { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:4px; }
+  .delay-controls { position:fixed; bottom:16px; right:16px; background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:10px 14px; display:flex; align-items:center; gap:10px; z-index:50; }
+  .delay-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; }
+  .delay-btn { font-family:var(--mono); font-size:12px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:3px; padding:4px 10px; cursor:pointer; }
+  .delay-btn:hover { border-color:var(--amber); color:var(--amber); }
+  .delay-val { font-family:var(--mono); font-size:12px; color:var(--amber); min-width:40px; text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="init-overlay" id="init-overlay">
+  <div class="init-title">PHILLY 500</div>
+  <div class="init-sub">102.9 MGK — MEMORIAL DAY WEEKEND COUNTDOWN</div>
+  <div class="init-input-row">
+    <input class="init-input" type="number" id="start-pos" value="500" min="1" max="500">
+    <button class="init-btn" onclick="startSession()">START SESSION</button>
+  </div>
+  <div class="init-note">Set starting position — 500 at countdown start, or current position if rejoining</div>
+</div>
+
+<div class="topbar">
+  <div>
+    <div class="station-id">102.9 MGK</div>
+    <div class="station-sub">Philadelphia's Classic Rock</div>
+  </div>
+  <div class="topbar-center">
+    <div class="live-badge"><div class="live-dot"></div>PHILLY 500</div>
+    <div class="ws-badge connecting" id="ws-badge">CONNECTING</div>
+  </div>
+  <div class="clock" id="clock">--:-- --</div>
+</div>
+
+<div class="position-banner">
+  <div>
+    <div class="pos-label">Current Position</div>
+    <div class="pos-number" id="pos-number">—</div>
+    <div class="pos-of">of 500</div>
+  </div>
+  <div class="pos-divider"></div>
+  <div class="pos-stats">
+    <div class="pos-stat">
+      <div class="pos-stat-val" id="stat-played">0</div>
+      <div class="pos-stat-label">Songs Played</div>
+    </div>
+    <div class="pos-stat">
+      <div class="pos-stat-val" id="stat-remaining">—</div>
+      <div class="pos-stat-label">Remaining</div>
+    </div>
+    <div class="pos-stat">
+      <div class="pos-stat-val" id="stat-unique">0</div>
+      <div class="pos-stat-label">Artists</div>
+    </div>
+    <div class="pos-stat">
+      <div class="pos-stat-val" id="stat-avg-year">—</div>
+      <div class="pos-stat-label">Avg Year</div>
+    </div>
+  </div>
+  <div class="pos-right">
+    <div class="pos-event">PHILLY 500</div>
+    <div class="pos-event-sub">MEMORIAL DAY WEEKEND 2026</div>
+    <div class="pos-event-sub" style="margin-top:4px;color:var(--amber);font-size:10px;" id="session-time">—</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="left-col">
+    <div class="commercial-banner" id="comm-banner">
+      <div class="comm-label">⏸ Commercial Break</div>
+      <div class="comm-sub">Next countdown song coming up...</div>
+    </div>
+    <div class="now-playing-card">
+      <div class="np-label">
+        <span>Now Playing</span>
+        <span class="np-position-pill" id="np-pos-pill">—</span>
+      </div>
+      <div class="np-body">
+        <div>
+          <div class="np-song" id="np-song">Waiting for countdown...</div>
+          <div class="np-artist" id="np-artist">—</div>
+          <div class="np-meta">Elapsed: <span id="np-elapsed">—</span></div>
+        </div>
+        <div style="text-align:right">
+          <div class="np-year-big" id="np-year">—</div>
+          <div class="np-decade" id="np-decade">—</div>
+        </div>
+      </div>
+      <div class="vu-row" id="vu-row"></div>
+    </div>
+    <div>
+      <div class="section-head">
+        Played This Session
+        <span class="section-count" id="recent-count">0 songs</span>
+      </div>
+      <div class="recent-list" id="recent-list">
+        <div class="empty-state" id="empty-msg">Session not started — no songs yet</div>
+      </div>
+    </div>
+  </div>
+  <div class="right-col">
+    <div>
+      <div class="section-head">Countdown Stats</div>
+      <div class="stat-grid">
+        <div class="stat-tile">
+          <div class="stat-label">Songs</div>
+          <div class="stat-value" id="r-songs">0</div>
+          <div class="stat-sub">this session</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Artists</div>
+          <div class="stat-value" id="r-artists">0</div>
+          <div class="stat-sub">unique</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Avg Year</div>
+          <div class="stat-value" id="r-year">—</div>
+          <div class="stat-sub">release</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Top Artist</div>
+          <div class="stat-value" style="font-size:13px;padding-top:6px" id="r-top">—</div>
+          <div class="stat-sub" id="r-top-plays">—</div>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div>
+      <div class="section-head">Decade Breakdown</div>
+      <div class="decade-chart" id="decade-chart">
+        <div class="empty-state" style="padding:8px 0">No data yet</div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div>
+      <div class="section-head">Top Artists <span class="section-count" id="artist-count"></span></div>
+      <div class="artist-list" id="artist-list">
+        <div class="empty-state" style="padding:6px 0">No data yet</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delay fine-tune controls (visible only to operator) -->
+<div class="delay-controls" id="delay-controls" style="display:none">
+  <div class="delay-label">DISPLAY DELAY</div>
+  <button class="delay-btn" onclick="adjustDelay(-5)">−5s</button>
+  <div class="delay-val" id="delay-val">25s</div>
+  <button class="delay-btn" onclick="adjustDelay(5)">+5s</button>
+</div>
+
+<script>
+const WS_URL = 'wss://wmgk-server-production.up.railway.app';
+const HTTP_URL = WS_URL.replace(/^ws/, 'http');
+let DISPLAY_DELAY_MS = 25000;
+
+const YEARS = {
+  "stairway to heaven":1971,"bohemian rhapsody":1975,"hotel california":1976,
+  "free bird":1973,"born to run":1975,"comfortably numb":1979,"dream on":1973,
+  "back in black":1980,"sweet child o' mine":1987,"purple haze":1967,
+  "layla":1970,"whole lotta love":1969,"black dog":1971,"kashmir":1975,
+  "immigrant song":1970,"rock and roll":1971,"communication breakdown":1969,
+  "over the hills and far away":1973,"d'yer mak'er":1973,"fool in the rain":1979,
+  "hey jude":1968,"come together":1969,"let it be":1970,"something":1969,
+  "here comes the sun":1969,"yesterday":1965,"a day in the life":1967,
+  "while my guitar gently weeps":1968,"sympathy for the devil":1968,
+  "paint it black":1966,"gimme shelter":1969,"wild horses":1971,
+  "brown sugar":1971,"jumpin' jack flash":1968,"tumbling dice":1972,
+  "honky tonk women":1969,"start me up":1981,"satisfaction":1965,
+  "who are you":1978,"baba o'riley":1971,"won't get fooled again":1971,
+  "behind blue eyes":1971,"pinball wizard":1969,"thunder road":1975,
+  "born in the usa":1984,"dancing in the dark":1984,"the river":1980,
+  "hungry heart":1980,"badlands":1978,"rosalita":1973,
+  "panama":1984,"jump":1984,"hot for teacher":1984,"runnin' with the devil":1978,
+  "dance the night away":1979,"right now":1991,"thunderstruck":1990,
+  "you shook me all night long":1980,"highway to hell":1979,
+  "shoot to thrill":1980,"t.n.t.":1975,"let there be rock":1977,
+  "dirty deeds done dirt cheap":1976,"down by the seaside":1975,
+  "once in a lifetime":1980,"psycho killer":1977,"smells like teen spirit":1991,
+  "come as you are":1991,"heart-shaped box":1993,"man in the box":1990,
+  "would?":1992,"jeremy":1991,"better man":1994,"even flow":1991,
+  "alive":1991,"yellow ledbetter":1992,"under the bridge":1992,
+  "scar tissue":1999,"californication":1999,"santeria":1996,
+  "carry on wayward son":1976,"dust in the wind":1977,"barracuda":1977,
+  "magic man":1976,"crazy on you":1976,"dreams":1977,"go your own way":1977,
+  "the chain":1977,"gold dust woman":1977,"rhiannon":1975,"landslide":1975,
+  "everywhere":1987,"more than a feeling":1976,"peace of mind":1976,
+  "amanda":1986,"take it easy":1972,"life in the fast lane":1977,
+  "one of these nights":1975,"lyin' eyes":1975,"desperado":1973,
+  "new kid in town":1976,"reeling in the years":1972,"do it again":1972,
+  "peg":1977,"tom sawyer":1981,"red barchetta":1981,"limelight":1981,
+  "subdivisions":1982,"the spirit of radio":1980,"closer to the heart":1977,
+  "working man":1974,"do you feel like we do":1973,"show me the way":1975,
+  "baby i love your way":1975,"roxanne":1978,"message in a bottle":1979,
+  "every breath you take":1983,"king of pain":1983,"so lonely":1978,
+  "eye of the tiger":1982,"hold the line":1978,"africa":1982,"rosanna":1982,
+  "r.o.c.k. in the u.s.a.":1985,"pink houses":1983,"small town":1985,
+  "hurts so good":1982,"jack and diane":1982,"night moves":1976,
+  "old time rock and roll":1978,"turn the page":1973,"against the wind":1980,
+  "like a rock":1986,"running on empty":1977,"free fallin'":1989,
+  "i won't back down":1989,"runnin' down a dream":1989,"learning to fly":1991,
+  "breakdown":1976,"american girl":1977,"refugee":1980,"the waiting":1981,
+  "lay down sally":1977,"wonderful tonight":1977,"cocaine":1977,
+  "sunshine of your love":1967,"white room":1968,"crossroads":1968,
+  "tiny dancer":1971,"rocket man":1972,"crocodile rock":1973,
+  "goodbye yellow brick road":1973,"bennie and the jets":1973,
+  "the bitch is back":1974,"saturday night's alright":1973,
+  "philadelphia freedom":1975,"your song":1970,"take me to the river":1974,
+};
+
+function guessYear(song) { return YEARS[song.toLowerCase().trim()] || null; }
+function decadeOf(year) { return Math.floor(year / 10) * 10; }
+
+let songs = [], serverPosition = null, sessionStarted = false;
+let sessionStartTime = null, currentStartMs = null, ws, reconnectTimer;
+let consecutiveErrors = 0, pendingTrack = null, displayTimer = null;
+
+// Secret key combo to show delay controls: press D three times
+let dCount = 0;
+document.addEventListener('keydown', e => {
+  if (e.key === 'd' || e.key === 'D') {
+    dCount++;
+    if (dCount >= 3) {
+      document.getElementById('delay-controls').style.display = 'flex';
+      dCount = 0;
+    }
+  } else { dCount = 0; }
+});
+
+function adjustDelay(seconds) {
+  DISPLAY_DELAY_MS = Math.max(0, DISPLAY_DELAY_MS + seconds * 1000);
+  document.getElementById('delay-val').textContent = (DISPLAY_DELAY_MS / 1000) + 's';
+}
+
+async function startSession() {
+  const pos = parseInt(document.getElementById('start-pos').value) || 500;
+  try { await fetch(`${HTTP_URL}/start?position=${pos}`); } catch(e) {}
+  serverPosition = pos;
+  sessionStarted = true;
+  sessionStartTime = Date.now();
+  document.getElementById('init-overlay').classList.add('hidden');
+  document.getElementById('pos-number').textContent = pos;
+  document.getElementById('stat-remaining').textContent = pos;
+}
+
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function updateSessionTime() {
+  if (!sessionStartTime) return;
+  const e = Math.floor((Date.now() - sessionStartTime) / 1000);
+  const h = Math.floor(e/3600), m = Math.floor((e%3600)/60), s = e%60;
+  document.getElementById('session-time').textContent =
+    `Session: ${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+}
+setInterval(updateSessionTime, 1000);
+
+setInterval(() => {
+  if (!currentStartMs) return;
+  const e = Math.round((Date.now() - currentStartMs) / 1000);
+  document.getElementById('np-elapsed').textContent =
+    `${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
+}, 1000);
+
+const vuRow = document.getElementById('vu-row');
+const vuBars = [];
+for (let i = 0; i < 36; i++) {
+  const b = document.createElement('div');
+  b.className = 'vu-bar'; b.style.height = '4px';
+  vuRow.appendChild(b); vuBars.push(b);
+}
+let vuActive = false;
+setInterval(() => {
+  if (!vuActive) return;
+  vuBars.forEach((bar, i) => {
+    const t = i / vuBars.length;
+    const h = Math.max(2, Math.min(24, (1-Math.abs(t-0.42)*1.9)*24+(Math.random()-0.5)*9));
+    bar.style.height = h+'px';
+    bar.style.background = h>20?'#e84040':h>13?'#e8a020':'#3ecf6a';
+    bar.style.opacity = 0.5+(h/24)*0.5;
+  });
+}, 110);
+
+function displayTrack(track) {
+  currentStartMs = track.startMs;
+  vuActive = true;
+  consecutiveErrors = 0;
+  document.getElementById('comm-banner').classList.remove('show');
+  document.getElementById('np-song').textContent = track.song;
+  document.getElementById('np-artist').textContent = track.artist;
+  const year = track.year || guessYear(track.song);
+  document.getElementById('np-year').textContent = year || '—';
+  document.getElementById('np-decade').textContent = year ? decadeOf(year)+'s' : '—';
+  document.getElementById('np-pos-pill').textContent = track.position != null ? `#${track.position}` : '—';
+}
+
+function renderRecent() {
+  const container = document.getElementById('recent-list');
+  const em = document.getElementById('empty-msg');
+  if (em) em.style.display = 'none';
+  document.getElementById('recent-count').textContent = `${songs.length} song${songs.length!==1?'s':''}`;
+  container.innerHTML = '';
+  [...songs].reverse().forEach((s, i) => {
+    const item = document.createElement('div');
+    item.className = 'recent-item'+(i===0?' new':'');
+    const t = new Date(s.fetchedAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    item.innerHTML = `
+      <div class="recent-pos">${s.position||'—'}</div>
+      <div><div class="recent-title">${s.song}</div><div class="recent-artist">${s.artist}</div></div>
+      <div class="recent-time">${t}</div>`;
+    container.appendChild(item);
+  });
+}
+
+function renderStats() {
+  const n = songs.length;
+  document.getElementById('r-songs').textContent = n;
+  document.getElementById('stat-played').textContent = n;
+  document.getElementById('stat-remaining').textContent = serverPosition !== null ? Math.max(0, serverPosition - 1) : '—';
+  const unique = new Set(songs.map(s=>s.artist.toLowerCase())).size;
+  document.getElementById('r-artists').textContent = unique;
+  document.getElementById('stat-unique').textContent = unique;
+  const withYears = songs.filter(s=>s.year);
+  if (withYears.length) {
+    const avg = Math.round(withYears.reduce((a,s)=>a+s.year,0)/withYears.length);
+    document.getElementById('r-year').textContent = avg;
+    document.getElementById('stat-avg-year').textContent = avg;
+  }
+  const counts = {};
+  songs.forEach(s=>{counts[s.artist]=(counts[s.artist]||0)+1;});
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if (sorted.length) {
+    document.getElementById('r-top').textContent = sorted[0][0];
+    document.getElementById('r-top-plays').textContent = `${sorted[0][1]} song${sorted[0][1]!==1?'s':''}`;
+  }
+}
+
+function renderDecades() {
+  const counts = {};
+  songs.filter(s=>s.year).forEach(s=>{
+    const d=decadeOf(s.year)+'s'; counts[d]=(counts[d]||0)+1;
+  });
+  const decades=['1960s','1970s','1980s','1990s','2000s'];
+  const max=Math.max(...Object.values(counts),1);
+  const container=document.getElementById('decade-chart');
+  if (!Object.keys(counts).length){container.innerHTML='<div class="empty-state" style="padding:8px 0">No data yet</div>';return;}
+  container.innerHTML='';
+  decades.forEach(d=>{
+    const c=counts[d]||0;
+    const row=document.createElement('div');
+    row.className='decade-row';
+    row.innerHTML=`<div class="decade-label">${d}</div><div class="decade-track"><div class="decade-fill" style="width:0%" data-target="${Math.round((c/max)*100)}%"></div></div><div class="decade-count">${c}</div>`;
+    container.appendChild(row);
+  });
+  setTimeout(()=>document.querySelectorAll('.decade-fill').forEach(el=>el.style.width=el.dataset.target),50);
+}
+
+function renderArtists() {
+  const counts={};
+  songs.forEach(s=>{counts[s.artist]=(counts[s.artist]||0)+1;});
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const container=document.getElementById('artist-list');
+  document.getElementById('artist-count').textContent=sorted.length?`${sorted.length} artists`:'';
+  if (!sorted.length){container.innerHTML='<div class="empty-state" style="padding:6px 0">No data yet</div>';return;}
+  container.innerHTML='';
+  sorted.forEach(([name,plays],i)=>{
+    const row=document.createElement('div');
+    row.className='artist-row';
+    row.innerHTML=`<div class="artist-rank">${i+1}</div><div class="artist-name">${name}</div><div class="artist-plays">${plays}×</div>`;
+    container.appendChild(row);
+  });
+}
+
+function renderAll(){renderRecent();renderStats();renderDecades();renderArtists();}
+
+function onNewTrack(track, msgPosition) {
+  if (!sessionStarted) return;
+  const year = guessYear(track.song);
+  const enriched = {...track, year};
+
+  clearTimeout(displayTimer);
+  displayTimer = setTimeout(() => {
+    songs.push(enriched);
+    if (msgPosition != null) {
+      serverPosition = msgPosition;
+      document.getElementById('pos-number').textContent = serverPosition;
+    }
+    displayTrack(enriched);
+    renderAll();
+  }, DISPLAY_DELAY_MS);
+}
+
+function connect() {
+  const badge = document.getElementById('ws-badge');
+  badge.className = 'ws-badge connecting';
+  badge.textContent = 'CONNECTING';
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    badge.className = 'ws-badge ok';
+    badge.textContent = 'LIVE ✓';
+  };
+
+  ws.onmessage = (evt) => {
+    const msg = JSON.parse(evt.data);
+    if (msg.type === 'init') {
+      if (msg.currentPosition != null) {
+        serverPosition = msg.currentPosition;
+        sessionStarted = true;
+        sessionStartTime = sessionStartTime || Date.now();
+        document.getElementById('init-overlay').classList.add('hidden');
+        document.getElementById('pos-number').textContent = serverPosition;
+      }
+      if (msg.current) {
+        displayTrack({...msg.current, year: guessYear(msg.current.song)});
+      }
+    }
+    if (msg.type === 'track') onNewTrack(msg.track, msg.currentPosition);
+    if (msg.type === 'poll_error') {
+      consecutiveErrors++;
+      if (consecutiveErrors >= 3) {
+        document.getElementById('comm-banner').classList.add('show');
+        vuActive = false;
+      }
+    }
+    if (msg.type === 'heartbeat') consecutiveErrors = 0;
+  };
+
+  ws.onerror = () => {
+    badge.className = 'ws-badge err';
+    badge.textContent = 'NO SERVER';
+  };
+
+  ws.onclose = () => {
+    badge.className = 'ws-badge connecting';
+    badge.textContent = 'RECONNECTING';
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, 5000);
+  };
+}
+
+connect();
+</script>
+</body>
+</html>
