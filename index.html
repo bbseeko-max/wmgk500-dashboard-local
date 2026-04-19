@@ -103,6 +103,13 @@
   .init-btn { font-family:var(--mono); font-size:11px; letter-spacing:2px; color:var(--bg); background:var(--amber); border:none; border-radius:4px; padding:12px 20px; cursor:pointer; text-transform:uppercase; }
   .init-btn:hover { background:#f0b030; }
   .init-note { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:4px; }
+  .init-pos-status { font-family:var(--mono); font-size:12px; color:var(--muted); letter-spacing:1px; margin-top:4px; }
+  .init-pos-status.active { color:var(--amber); font-size:15px; }
+  .init-op-link { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; cursor:pointer; text-decoration:underline; }
+  .init-op-link:hover { color:var(--text); }
+  .init-pin-input { font-family:var(--mono); font-size:28px; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:8px 16px; width:120px; text-align:center; outline:none; letter-spacing:6px; }
+  .init-pin-input:focus { border-color:var(--amber); }
+  .init-error { font-family:var(--mono); font-size:9px; color:var(--red); letter-spacing:1px; min-height:14px; margin-top:6px; }
   .delay-controls { position:fixed; bottom:16px; right:16px; background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:10px 14px; display:flex; align-items:center; gap:10px; z-index:50; }
   .delay-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; }
   .delay-btn { font-family:var(--mono); font-size:12px; color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:3px; padding:4px 10px; cursor:pointer; }
@@ -115,11 +122,34 @@
 <div class="init-overlay" id="init-overlay">
   <div class="init-title">PHILLY 500</div>
   <div class="init-sub">102.9 MGK — MEMORIAL DAY WEEKEND COUNTDOWN</div>
-  <div class="init-input-row">
-    <input class="init-input" type="number" id="start-pos" value="500" min="1" max="500">
-    <button class="init-btn" onclick="startSession()">START SESSION</button>
+
+  <!-- Default view: visible to all -->
+  <div id="overlay-enter">
+    <div class="init-pos-status" id="overlay-pos-status">Connecting to server...</div>
+    <button class="init-btn" style="margin-top:18px" onclick="enterDashboard()">ENTER DASHBOARD</button>
+    <div class="init-note" style="margin-top:14px"><span class="init-op-link" onclick="showPinPrompt()">Operator access</span></div>
   </div>
-  <div class="init-note">Set starting position — 500 at countdown start, or current position if rejoining</div>
+
+  <!-- PIN view -->
+  <div id="overlay-pin" style="display:none">
+    <div class="init-sub" style="margin-bottom:14px">ENTER OPERATOR PIN</div>
+    <div class="init-input-row">
+      <input class="init-pin-input" type="password" id="pin-input" maxlength="4" placeholder="••••" onkeydown="if(event.key==='Enter')submitPin()">
+      <button class="init-btn" onclick="submitPin()">UNLOCK</button>
+    </div>
+    <div class="init-error" id="pin-error"></div>
+    <div class="init-note" style="margin-top:6px"><span class="init-op-link" onclick="showEnterView()">← Back</span></div>
+  </div>
+
+  <!-- Session control view: visible only after correct PIN -->
+  <div id="overlay-session" style="display:none">
+    <div class="init-input-row">
+      <input class="init-input" type="number" id="start-pos" value="500" min="1" max="500">
+      <button class="init-btn" onclick="startSession()">START SESSION</button>
+    </div>
+    <div class="init-note">Set starting position — 500 at countdown start, or current position if rejoining</div>
+    <div class="init-note" style="margin-top:8px"><span class="init-op-link" onclick="showEnterView()">← Cancel</span></div>
+  </div>
 </div>
 
 <div class="topbar">
@@ -496,6 +526,39 @@ function onNewTrack(track, msgPosition) {
   }, DISPLAY_DELAY_MS);
 }
 
+function enterDashboard() {
+  if (serverPosition !== null) {
+    sessionStarted = true;
+    sessionStartTime = sessionStartTime || Date.now();
+  }
+  document.getElementById('init-overlay').classList.add('hidden');
+}
+
+function showPinPrompt() {
+  document.getElementById('overlay-enter').style.display = 'none';
+  document.getElementById('overlay-pin').style.display = 'block';
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').textContent = '';
+  setTimeout(() => document.getElementById('pin-input').focus(), 50);
+}
+
+function showEnterView() {
+  document.getElementById('overlay-pin').style.display = 'none';
+  document.getElementById('overlay-session').style.display = 'none';
+  document.getElementById('overlay-enter').style.display = 'block';
+}
+
+function submitPin() {
+  if (document.getElementById('pin-input').value === '1776') {
+    document.getElementById('overlay-pin').style.display = 'none';
+    document.getElementById('overlay-session').style.display = 'block';
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN — try again';
+    document.getElementById('pin-input').value = '';
+    document.getElementById('pin-input').focus();
+  }
+}
+
 function connect() {
   const badge = document.getElementById('ws-badge');
   badge.className = 'ws-badge connecting';
@@ -512,13 +575,26 @@ function connect() {
     if (msg.type === 'init') {
       if (msg.currentPosition != null) {
         serverPosition = msg.currentPosition;
-        sessionStarted = true;
-        sessionStartTime = sessionStartTime || Date.now();
-        document.getElementById('init-overlay').classList.add('hidden');
         document.getElementById('pos-number').textContent = serverPosition;
+        const el = document.getElementById('overlay-pos-status');
+        el.textContent = `Session active — position #${serverPosition}`;
+        el.className = 'init-pos-status active';
+        document.getElementById('start-pos').value = serverPosition + 1;
+      } else {
+        const el = document.getElementById('overlay-pos-status');
+        el.textContent = 'No active session on server';
+        el.className = 'init-pos-status';
       }
       if (msg.current) {
-        displayTrack({...msg.current, year: guessYear(msg.current.song)});
+        displayTrack({...msg.current, year: msg.current.year || guessYear(msg.current.song)});
+      }
+    }
+    if (msg.type === 'track_meta') {
+      if (msg.year) {
+        document.getElementById('np-year').textContent = msg.year;
+        document.getElementById('np-decade').textContent = Math.floor(msg.year / 10) * 10 + 's';
+        if (songs.length) songs[songs.length - 1].year = msg.year;
+        renderStats(); renderDecades();
       }
     }
     if (msg.type === 'track') onNewTrack(msg.track, msg.currentPosition);
